@@ -3,12 +3,9 @@
 /** @var \Laravel\Lumen\Routing\Router $router */
 
 // enable CORS 
-
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: *');
-
-
 
 // Include PHPMailer library
 use PHPMailer\PHPMailer\PHPMailer;
@@ -17,63 +14,77 @@ use PHPMailer\PHPMailer\SMTP;
 
 $router->post('/api/jokes', function (\Illuminate\Http\Request $request) {
 
-
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // get the email addresses from the request body
         $emails = json_decode(file_get_contents('php://input'), true);
 
+        // validate the input
+        if (!is_array($emails)) {
+            http_response_code(400);
+            echo json_encode(array('message' => 'Invalid request body'));
+            exit();
+        }
 
+        // load SMTP credentials from environment variables
+        $smtp_host = getenv('MAIL_HOST');
+        $smtp_user = getenv('MAIL_USERNAME');
+        $smtp_pass = getenv('MAIL_PASSWORD');
+        $smtp_port = getenv('MAIL_PORT');
+        $from_email = getenv('MAIL_FROM_ADDRESS');
+        $from_name = getenv('MAIL_FROM_NAME');
 
+        // create a new PHPMailer instance
+        $mail = new PHPMailer(true);
 
-  // Send a request to the Chuck Norris API to get a random joke
-  $url = 'https://api.chucknorris.io/jokes/random';
-  $response = file_get_contents($url);
-  $data = json_decode($response, true);
-
-  // Extract the joke from the response
-  $joke = $data['value'];
-
-  // Send the joke via email using PHPMailer
-  $mail = new PHPMailer(true);
-
-
+        // configure PHPMailer
+        try {
+            $mail->SMTPDebug = 0; // disable debug output
+            $mail->isSMTP();
+            $mail->Host = $smtp_host;
+            $mail->SMTPAuth = true;
+            $mail->Username = $smtp_user;
+            $mail->Password = $smtp_pass;
+            $mail->SMTPSecure = 'tls';
+            $mail->Port = $smtp_port;
+            $mail->setFrom($from_email, $from_name);
+            $mail->addReplyTo($from_email, $from_name);
+            $mail->isHTML(true);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(array('message' => 'Error configuring email sender: '.$mail->ErrorInfo));
+            exit();
+        }
 
         // send the Chuck Norris joke email to each email address
         foreach ($emails as $email) {
-            $mail = new PHPMailer(true);
-
             try {
-                //Server settings
-                $mail->SMTPDebug = 0;    //Enable verbose debug output
-                $mail->isSMTP();       //Send using SMTP
-                $mail->Host       = 'smtp.gmail.com';      //Set the SMTP server to send through
-                $mail->SMTPAuth   = true;         //Enable SMTP authentication
-                $mail->Username   = 'cgdevemail@gmail.com';     //SMTP username
-                $mail->Password   = 'fvhnmyfjcxgbqzne';     //SMTP password
-                $mail->SMTPSecure = 'tls';     //Enable implicit TLS encryption
-                $mail->Port       = 587;      //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
+                // send a request to the Chuck Norris API to get a random joke
+                $url = 'https://api.chucknorris.io/jokes/random';
+                $response = file_get_contents($url);
+                $data = json_decode($response, true);
 
-                //Recipients
-                $mail->setFrom('your_email@gmail.com', 'Your Name');
-                $mail->addAddress($email);   //Add a recipient
-                $mail->addReplyTo('your_email@gmail.com', 'Your Name');
+                // extract the joke from the response
+                $joke = $data['value'];
 
-                //Content
-                $mail->isHTML(true);   //Set email format to HTML
+                // send the email
+                $mail->addAddress($email);
                 $mail->Subject = 'Chuck Norris Joke';
-                // $mail->Body    = 'Why did the chicken cross the road? To get away from Chuck Norris!';
-               
-                $mail->Body    = $joke;
-
+                $mail->Body = $joke;
                 $mail->send();
-                echo json_encode(array('message' => 'Email sent successfully'));
-                exit();
+
+                // clear the recipient list
+                $mail->clearAddresses();
+
             } catch (Exception $e) {
                 http_response_code(500);
-                echo json_encode(array('message' => 'Error sending email: '.$mail->ErrorInfo));
+                error_log('Error sending email: '.$mail->ErrorInfo);
+                echo json_encode(array('message' => 'Error sending email'));
                 exit();
             }
         }
+
+        // return a success response
+        echo json_encode(array('message' => 'Email sent successfully'));
 
     } else {
         http_response_code(405);
@@ -81,7 +92,6 @@ $router->post('/api/jokes', function (\Illuminate\Http\Request $request) {
         exit();
     }
 });
-
 
 
         $router->get('/api/jokes', function () use ($router) {
