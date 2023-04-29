@@ -24,3 +24,17 @@ If you discover a security vulnerability within Lumen, please send an e-mail to 
 ## License
 
 The Lumen framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Commands
+
+(composer create-project --prefer-dist laravel/lumen my-app -> used to create the lumen project)
+
+## Setting up
+
+composer install -> install the dependencies
+
+php -S localhost:8000 -t public -> run the project
+
+Copy the .env.example file to .env by running cp .env.example .env on Unix-like systems or copy .env.example .env on Windows. This will create a new .env file with the same variables as .env.example.
+
+Update the variables in the .env file to match your environment settings, such as database credentials, app name, app environment, etc.
